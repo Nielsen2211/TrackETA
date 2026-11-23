@@ -31,17 +31,19 @@ local SPELLS = {
 
 local LOC = {
   en = { title = "TrackETA", tracking = "Tracking", bar = "Bar", vertical = "Vertical bar", lock = "Lock position", large = "Large icons",
-    showTitle = "Show handle", none = "You know no tracking yet.", hint = "Left-click: track  ·  Right-click: settings",
-    grip = "Drag to move  ·  Right-click: settings", combat = "Changes the bar after combat.", locked = "Bar locked", unlocked = "Bar unlocked",
+    showTitle = "Show handle", none = "You know no tracking yet.", hint = "Left-click: track\nRight-click: settings",
+    grip = "Drag to move\nRight-click: settings", minimap = "Minimap button", language = "Language", langName = "Language: English",
+    mmTip = "Left-click: show or hide the bar\nRight-click: settings\nDrag: move this button", done = "Done", combat = "Changes the bar after combat.", locked = "Bar locked", unlocked = "Bar unlocked",
     help = "/teta: settings  ·  /teta lock  ·  /teta hide  ·  /teta reset  ·  /teta da|en" },
   da = { title = "TrackETA", tracking = "Sporing", bar = "Bar", vertical = "Lodret bar", lock = "Lås placering", large = "Store ikoner",
-    showTitle = "Vis håndtag", none = "Du kan ingen sporing endnu.", hint = "Venstreklik: spor  ·  Højreklik: indstillinger",
-    grip = "Træk for at flytte  ·  Højreklik: indstillinger", combat = "Ændrer baren efter kampen.", locked = "Baren er låst", unlocked = "Baren er låst op",
+    showTitle = "Vis håndtag", none = "Du kan ingen sporing endnu.", hint = "Venstreklik: spor\nHøjreklik: indstillinger",
+    grip = "Træk for at flytte\nHøjreklik: indstillinger", minimap = "Minimap-knap", language = "Sprog", langName = "Sprog: Dansk",
+    mmTip = "Venstreklik: vis eller skjul baren\nHøjreklik: indstillinger\nTræk: flyt knappen", done = "Færdig", combat = "Ændrer baren efter kampen.", locked = "Baren er låst", unlocked = "Baren er låst op",
     help = "/teta: indstillinger  ·  /teta lock  ·  /teta hide  ·  /teta reset  ·  /teta da|en" },
 }
 local function T(k) return (LOC[(DB and DB.lang) or "en"] or LOC.en)[k] end
 
-local defaults = { lang = "en", vertical = false, locked = false, large = false, hidden = false, grip = true }
+local defaults = { lang = "en", vertical = false, locked = false, large = false, hidden = false, grip = true, showMinimap = true, mmAngle = 220 }
 
 -- Forever skjuler nogle vaerdier for addons ("secret values"): dem roerer vi ikke
 local function secret(v) return type(issecretvalue) == "function" and issecretvalue(v) or false end
@@ -100,7 +102,8 @@ end
 -- ---------- baren ----------
 local function fs(parent, font, size)
   local t = parent:CreateFontString(nil, "OVERLAY")
-  t:SetFont(font, size, ""); t:SetShadowOffset(1, -1); t:SetShadowColor(0, 0, 0, 0.6)
+  t:SetFont(font, size, ""); t:SetShadowOffset(0, 0)
+  if t.SetWordWrap then t:SetWordWrap(false) end
   return t
 end
 
@@ -115,10 +118,32 @@ local function skin(frame)
   local mid = part("PanelMid"); mid:SetPoint("TOPLEFT", top, "BOTTOMLEFT"); mid:SetPoint("BOTTOMRIGHT", bot, "TOPRIGHT")
 end
 
+-- navn og guldstreg oeverst, som i LevelETA
+local function header(frame, titleText)
+  local title = fs(frame, F_BOLD, 15)
+  title:SetPoint("LEFT", frame, "TOPLEFT", 14, -20)
+  if titleText then title:SetText(titleText) end
+  local line = frame:CreateTexture(nil, "ARTWORK")
+  line:SetSize(22, 2); line:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -5)
+  line:SetColorTexture(1, 0.8, 0.35, 0.9)
+  return title
+end
+
+-- lag: det vindue du klikker paa eller aabner, kommer foran de andre ETA vinduer.
+-- Baren har sikre knapper, saa den loeftes kun uden for kamp.
+local function lift(frame, secure)
+  if frame.SetToplevel and not secure then frame:SetToplevel(true) end
+  frame:SetFrameLevel(40)
+  local function up(self) if not (secure and combat()) then self:Raise() end end
+  frame:HookScript("OnShow", up)
+  frame:HookScript("OnMouseDown", up)
+end
+
 local bar = CreateFrame("Frame", "TrackETAFrame", UIParent)
 bar:SetSize(120, 46); bar:SetPoint("TOP", UIParent, "TOP", 0, -150)
 bar:SetMovable(true); bar:EnableMouse(true); bar:SetClampedToScreen(true); bar:RegisterForDrag("LeftButton")
 skin(bar)
+lift(bar, true)
 
 local openSettings   -- saettes laengere nede
 local refresh, layout
@@ -168,10 +193,11 @@ for i, id in ipairs(SPELLS) do
     return t
   end
   b.dark = edge(0.04, 0.05, 0.07, 1, "BORDER")
-  b.gold = edge(1, 0.82, 0.3, 1, "OVERLAY")
-  local glow = b:CreateTexture(nil, "BACKGROUND"); glow:SetPoint("TOPLEFT", -3, 3); glow:SetPoint("BOTTOMRIGHT", 3, -3)
-  glow:SetColorTexture(1, 0.82, 0.3, 0.22)
-  b.glow = glow
+  -- det aktive spor: en kort guldstreg under ikonet, som stregen under titlen
+  local mark = b:CreateTexture(nil, "OVERLAY"); mark:SetHeight(2)
+  mark:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 6, -2); mark:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", -6, -2)
+  mark:SetColorTexture(1, 0.8, 0.35, 0.9)
+  b.mark = mark
   local hl = b:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(icon); hl:SetColorTexture(1, 1, 1, 0.12)
   local cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
   cd:SetAllPoints(icon); if cd.SetHideCountdownNumbers then cd:SetHideCountdownNumbers(true) end
@@ -220,9 +246,9 @@ layout = function()
     b:Show()
   end
   local long = pad * 2 + gripW + #list * size + (#list - 1) * gap
-  local short = pad * 2 + size
+  local short = pad * 2 + size + 2
   if DB.vertical then
-    bar:SetSize(short, long)
+    bar:SetSize(short - 2, long)
     for k = 1, 3 do grip[k]:ClearAllPoints(); grip[k]:SetPoint("TOP", bar, "TOP", (k - 2) * 6, -pad - 2) end
   else
     bar:SetSize(long, short)
@@ -240,8 +266,7 @@ refresh = function()
     if b:IsShown() then
       local name, icon = spellName(b.id), spellIcon(b.id)
       local on = names[b.id] or (name and names[name]) or (icon and icons[icon]) or false
-      for k = 1, 4 do b.gold[k]:SetShown(on) end
-      b.glow:SetShown(on)
+      b.mark:SetShown(on)
       if b.icon.SetDesaturated then b.icon:SetDesaturated(not on) end
       b.icon:SetAlpha(on and 1 or 0.72)
       -- nedkoeling (sporing har en kort global nedkoeling)
@@ -263,70 +288,80 @@ refresh = function()
   end
 end
 
--- ---------- indstillinger ----------
+-- ---------- indstillinger (samme byggeklodser som LevelETA) ----------
+local SW, SP = 260, 18
 local S = CreateFrame("Frame", "TrackETASettings", UIParent)
-S:SetSize(250, 200); S:SetPoint("CENTER"); S:SetFrameStrata("DIALOG"); S:Hide()
+S:SetSize(SW, 200); S:SetPoint("CENTER"); S:SetFrameStrata("HIGH"); S:Hide()
 S:SetMovable(true); S:EnableMouse(true); S:SetClampedToScreen(true); S:RegisterForDrag("LeftButton")
 S:SetScript("OnDragStart", S.StartMoving); S:SetScript("OnDragStop", S.StopMovingOrSizing)
-if S.SetToplevel then S:SetToplevel(true) end
 skin(S)
+lift(S)
 tinsert(UISpecialFrames, "TrackETASettings")   -- Escape lukker den
-local sTitle = fs(S, F_BOLD, 14); sTitle:SetPoint("TOPLEFT", 16, -14); sTitle:SetText("|cffffffffTrack|r|cffffd24aETA|r")
+header(S, "|cffffffffTrack|r|cffffd24aETA|r")
 local close = CreateFrame("Button", nil, S); close:SetSize(20, 20); close:SetPoint("TOPRIGHT", -10, -10)
-local cx = fs(close, F_BOLD, 14); cx:SetPoint("CENTER"); cx:SetText("×"); cx:SetTextColor(0.6, 0.62, 0.68)
-close:SetScript("OnEnter", function() cx:SetTextColor(1, 0.82, 0.3) end)
-close:SetScript("OnLeave", function() cx:SetTextColor(0.6, 0.62, 0.68) end)
+local cx = fs(close, F_BOLD, 16); cx:SetPoint("CENTER"); cx:SetText("×"); cx:SetTextColor(0.55, 0.58, 0.64)
+close:SetScript("OnEnter", function() cx:SetTextColor(1, 1, 1) end)
+close:SetScript("OnLeave", function() cx:SetTextColor(0.55, 0.58, 0.64) end)
 close:SetScript("OnClick", function() S:Hide() end)
-local note = fs(S, F_SEMI, 10); note:SetTextColor(1, 0.6, 0.35); note:SetPoint("BOTTOMLEFT", 16, 12); note:SetPoint("BOTTOMRIGHT", -16, 12)
-note:SetJustifyH("LEFT")
+local note = fs(S, F_SEMI, 11); note:SetTextColor(1, 0.6, 0.35); note:SetJustifyH("LEFT")
+
+local function pill(w)
+  local b = CreateFrame("Button", nil, S); b:SetSize(w, 24)
+  local bg = b:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); bg:SetTexture(TEX .. "Pill"); bg:SetTexCoord(0, 240 / 256, 0, 48 / 64)
+  b.text = fs(b, F_SEMI, 12); b.text:SetPoint("CENTER"); b.text:SetTextColor(0.85, 0.87, 0.92)
+  b:SetScript("OnEnter", function() b.text:SetTextColor(1, 0.82, 0.4) end)
+  b:SetScript("OnLeave", function() b.text:SetTextColor(0.85, 0.87, 0.92) end)
+  return b
+end
+local langBtn = pill(130); langBtn:SetPoint("BOTTOMLEFT", SP, 16)
+local doneBtn = pill(SW - 2 * SP - 130 - 8); doneBtn:SetPoint("BOTTOMRIGHT", -SP, 16)
+doneBtn:SetScript("OnClick", function() S:Hide() end)
 
 local rowPool, heads = {}, {}
 local function head(i)
   local h = heads[i]
-  if not h then h = fs(S, F_BOLD, 10); h:SetTextColor(0.55, 0.58, 0.64); heads[i] = h end
+  if not h then h = fs(S, F_BOLD, 11); h:SetTextColor(1, 0.82, 0.4); heads[i] = h end
   return h
 end
--- en raekke: en lille kontakt, evt. et ikon, og en tekst. Klik skifter.
+-- en raekke: evt. et ikon, en tekst og en kontakt til hoejre. Klik paa hele raekken skifter.
 local function toggleRow(i)
   local r = rowPool[i]
   if r then return r end
-  r = CreateFrame("Button", nil, S); r:SetHeight(22)
-  local box = r:CreateTexture(nil, "ARTWORK"); box:SetSize(14, 14); box:SetPoint("LEFT", 0, 0); box:SetColorTexture(0.16, 0.17, 0.21)
-  local fill = r:CreateTexture(nil, "OVERLAY"); fill:SetSize(8, 8); fill:SetPoint("CENTER", box, "CENTER"); fill:SetColorTexture(1, 0.82, 0.3)
-  local ic = r:CreateTexture(nil, "ARTWORK"); ic:SetSize(16, 16); ic:SetPoint("LEFT", box, "RIGHT", 8, 0); ic:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-  local tx = fs(r, F_SEMI, 11); tx:SetTextColor(0.85, 0.87, 0.9)
-  local hl = r:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.04)
-  r.box, r.fill, r.ic, r.tx = box, fill, ic, tx
-  r:SetScript("OnClick", function(self) self.set(not self.get()); S.build() end)
+  r = CreateFrame("Button", nil, S); r:SetHeight(24)
+  local off = r:CreateTexture(nil, "ARTWORK"); off:SetSize(32, 18); off:SetPoint("RIGHT"); off:SetTexture(TEX .. "ToggleOff"); off:SetTexCoord(0, 1, 0, 36 / 64)
+  local on = r:CreateTexture(nil, "ARTWORK"); on:SetAllPoints(off); on:SetTexture(TEX .. "ToggleOn"); on:SetTexCoord(0, 1, 0, 36 / 64)
+  local ic = r:CreateTexture(nil, "ARTWORK"); ic:SetSize(16, 16); ic:SetPoint("LEFT", 0, 0); ic:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  local tx = fs(r, F_SEMI, 12); tx:SetTextColor(0.85, 0.87, 0.92); tx:SetJustifyH("LEFT")
+  tx:SetPoint("RIGHT", off, "LEFT", -8, 0)
+  r.off, r.on, r.ic, r.tx = off, on, ic, tx
+  r:SetScript("OnClick", function(self) if self.set then self.set(not self.get()); S.build() end end)
   rowPool[i] = r
   return r
 end
 
 function S.build()
   if not DB then return end
-  local y, n, h = -42, 0, 0
+  local y, n, h = -44, 0, 0
   local function section(text)
-    h = h + 1; local hd = head(h); hd:ClearAllPoints(); hd:SetPoint("TOPLEFT", 16, y); hd:SetText(string.upper(text)); hd:Show()
-    y = y - 18
+    h = h + 1; local hd = head(h); hd:ClearAllPoints(); hd:SetPoint("TOPLEFT", SP, y); hd:SetText(text); hd:Show()
+    y = y - 20
   end
   local function add(text, icon, get, set)
     n = n + 1; local r = toggleRow(n)
-    r:ClearAllPoints(); r:SetPoint("TOPLEFT", 16, y); r:SetPoint("RIGHT", S, "RIGHT", -16, 0)
+    r:ClearAllPoints(); r:SetPoint("TOPLEFT", SP, y); r:SetPoint("RIGHT", S, "RIGHT", -SP, 0)
     r.get, r.set = get, set
-    r.box:Show()
-    local on = get() and true or false
-    r.fill:SetShown(on)
-    r.box:SetColorTexture(on and 0.3 or 0.16, on and 0.25 or 0.17, on and 0.12 or 0.21)
+    local isOn = get() and true or false
+    r.off:SetShown(set ~= nil and not isOn); r.on:SetShown(set ~= nil and isOn)
+    r.tx:ClearAllPoints()
+    if set then r.tx:SetPoint("RIGHT", r.off, "LEFT", -8, 0) else r.tx:SetPoint("RIGHT", r, "RIGHT", 0, 0) end
     if icon then
-      r.ic:SetTexture(icon); r.ic:Show()
-      r.tx:ClearAllPoints(); r.tx:SetPoint("LEFT", r.ic, "RIGHT", 8, 0)
+      r.ic:SetTexture(icon); r.ic:Show(); r.tx:SetPoint("LEFT", r.ic, "RIGHT", 8, 0)
     else
-      r.ic:Hide()
-      r.tx:ClearAllPoints(); r.tx:SetPoint("LEFT", r.box, "RIGHT", 8, 0)
+      r.ic:Hide(); r.tx:SetPoint("LEFT", r, "LEFT", 0, 0)
     end
     r.tx:SetText(text)
     r:Show()
-    y = y - 22
+    y = y - 24
   end
 
   section(T("tracking"))
@@ -339,29 +374,72 @@ function S.build()
         function(v) DB.hide = DB.hide or {}; DB.hide[id] = (not v) or nil; layout() end)
     end
   end
-  if not any then
-    n = n + 1; local r = toggleRow(n); r:ClearAllPoints(); r:SetPoint("TOPLEFT", 16, y); r:SetPoint("RIGHT", S, "RIGHT", -16, 0)
-    r.get, r.set = function() return false end, function() end
-    r.box:Hide(); r.fill:Hide(); r.ic:Hide(); r.tx:ClearAllPoints(); r.tx:SetPoint("LEFT", 0, 0); r.tx:SetText(T("none")); r:Show()
-    y = y - 22
-  end
-  y = y - 6
+  if not any then add(T("none"), nil, function() return false end, nil) end
+  y = y - 8
   section(T("bar"))
   add(T("vertical"), nil, function() return DB.vertical end, function(v) DB.vertical = v; layout() end)
   add(T("large"), nil, function() return DB.large end, function(v) DB.large = v; layout() end)
   add(T("showTitle"), nil, function() return DB.grip end, function(v) DB.grip = v; layout() end)
   add(T("lock"), nil, function() return DB.locked end, function(v) DB.locked = v end)
+  add(T("minimap"), nil, function() return DB.showMinimap end, function(v) DB.showMinimap = v; if TrackETAMinimapButton then TrackETAMinimapButton:SetShown(v) end end)
 
   for i = n + 1, #rowPool do rowPool[i]:Hide() end
   for i = h + 1, #heads do heads[i]:Hide() end
-  note:SetText(pending and T("combat") or "")
-  S:SetHeight(-y + 30)
+  local msg = pending and T("combat") or ""
+  note:SetText(msg); note:ClearAllPoints()
+  if msg ~= "" then
+    note:SetPoint("TOPLEFT", SP, y - 6); note:SetPoint("RIGHT", S, "RIGHT", -SP, 0); note:Show(); y = y - 22
+  else note:Hide() end
+  langBtn.text:SetText(T("langName"))
+  doneBtn.text:SetText(T("done"))
+  S:SetHeight(-y + 14 + 24 + 16)
 end
 S:SetScript("OnShow", function() S.build() end)
+langBtn:SetScript("OnClick", function() DB.lang = (DB.lang == "da") and "en" or "da"; S.build() end)
 
 openSettings = function()
   if S:IsShown() then S:Hide() else S:Show() end
 end
+
+-- ---------- minimap-knap (som i LevelETA) ----------
+local mmb = CreateFrame("Button", "TrackETAMinimapButton", Minimap)
+mmb:SetSize(31, 31); mmb:SetFrameStrata("MEDIUM"); mmb:SetFrameLevel(8)
+mmb:RegisterForClicks("LeftButtonUp", "RightButtonUp"); mmb:RegisterForDrag("LeftButton")
+mmb:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+do
+  local bg = mmb:CreateTexture(nil, "BACKGROUND"); bg:SetSize(20, 20); bg:SetPoint("TOPLEFT", 7, -5); bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+  local icon = mmb:CreateTexture(nil, "ARTWORK"); icon:SetSize(21, 21); icon:SetPoint("TOPLEFT", 5, -5); icon:SetTexture(TEX .. "Logo")
+  local border = mmb:CreateTexture(nil, "OVERLAY"); border:SetSize(53, 53); border:SetPoint("TOPLEFT"); border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+end
+local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
+local function placeButton()
+  local a = math.rad(DB and DB.mmAngle or 220)
+  local rad = (Minimap:GetWidth() / 2) + 5
+  mmb:ClearAllPoints(); mmb:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * rad, math.sin(a) * rad)
+end
+mmb:SetScript("OnDragStart", function(self)
+  self:SetScript("OnUpdate", function()
+    local mx, my = Minimap:GetCenter()
+    local px, py = GetCursorPosition()
+    local sc = Minimap:GetEffectiveScale()
+    DB.mmAngle = math.deg(atan2(py / sc - my, px / sc - mx))
+    placeButton()
+  end)
+end)
+mmb:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+mmb:SetScript("OnClick", function(_, btn)
+  if not DB then return end
+  if btn == "RightButton" then openSettings(); return end
+  if combat() then print("|cffffd24aTrackETA|r: " .. T("combat")); return end
+  DB.hidden = not DB.hidden; layout()
+end)
+mmb:SetScript("OnEnter", function(self)
+  GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+  GameTooltip:AddLine("TrackETA", 1, 0.82, 0.3)
+  GameTooltip:AddLine(T("mmTip"), 0.6, 0.6, 0.6)
+  GameTooltip:Show()
+end)
+mmb:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 -- ---------- haendelser ----------
 local E = CreateFrame("Frame")
@@ -376,6 +454,7 @@ E:SetScript("OnEvent", function(_, ev, a1)
     DB = TrackETADB
     for k, v in pairs(defaults) do if DB[k] == nil then DB[k] = v end end
     DB.hide = DB.hide or {}
+    placeButton(); mmb:SetShown(DB.showMinimap)
     if type(DB.point) == "table" and DB.point[1] then
       bar:ClearAllPoints(); bar:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", DB.point[1], DB.point[2])
     end

@@ -3,7 +3,7 @@
 ## Notes: A small bar with all your tracking: Track Humanoids, Beasts, Undead and the rest, plus Find Herbs and Find Minerals. One click to switch.
 ## Notes-daDK: En lille bar med al din sporing: Track Humanoids, Beasts, Undead og resten, plus Find Herbs og Find Minerals. Et klik for at skifte.
 ## Author: Rasmus
-## Version: 1.6
+## Version: 1.7
 ## IconTexture: Interface\AddOns\TrackETA\Textures\Logo
 ## SavedVariablesPerCharacter: TrackETADB
 TrackETA.lua
