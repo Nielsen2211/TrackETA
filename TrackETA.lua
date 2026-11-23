@@ -30,12 +30,12 @@ local SPELLS = {
 }
 
 local LOC = {
-  en = { title = "TrackETA", tracking = "Tracking", bar = "Bar", vertical = "Vertical bar", lock = "Lock position", large = "Large icons",
+  en = { title = "TrackETA", settings = "Settings", tracking = "Tracking", bar = "Bar", vertical = "Vertical bar", lock = "Lock position", large = "Large icons",
     showTitle = "Show handle", none = "You know no tracking yet.", hint = "Left-click: track\nRight-click: settings",
     grip = "Drag to move\nRight-click: settings", minimap = "Minimap button", language = "Language", langName = "Language: English",
     mmTip = "Left-click: show or hide the bar\nRight-click: settings\nDrag: move this button", done = "Done", combat = "Changes the bar after combat.", locked = "Bar locked", unlocked = "Bar unlocked",
     help = "/teta: settings  ·  /teta lock  ·  /teta hide  ·  /teta reset  ·  /teta da|en" },
-  da = { title = "TrackETA", tracking = "Sporing", bar = "Bar", vertical = "Lodret bar", lock = "Lås placering", large = "Store ikoner",
+  da = { title = "TrackETA", settings = "Indstillinger", tracking = "Sporing", bar = "Bar", vertical = "Lodret bar", lock = "Lås placering", large = "Store ikoner",
     showTitle = "Vis håndtag", none = "Du kan ingen sporing endnu.", hint = "Venstreklik: spor\nHøjreklik: indstillinger",
     grip = "Træk for at flytte\nHøjreklik: indstillinger", minimap = "Minimap-knap", language = "Sprog", langName = "Sprog: Dansk",
     mmTip = "Venstreklik: vis eller skjul baren\nHøjreklik: indstillinger\nTræk: flyt knappen", done = "Færdig", combat = "Ændrer baren efter kampen.", locked = "Baren er låst", unlocked = "Baren er låst op",
@@ -165,7 +165,7 @@ bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
 -- haandtaget: tre smaa prikker i venstre side
 local grip = {}
 for i = 1, 3 do
-  local d = bar:CreateTexture(nil, "ARTWORK"); d:SetSize(3, 3); d:SetColorTexture(1, 0.82, 0.3, 0.55)
+  local d = bar:CreateTexture(nil, "ARTWORK"); d:SetSize(4, 4); d:SetTexture(TEX .. "Dot"); d:SetVertexColor(1, 0.82, 0.3); d:SetAlpha(0.55)
   grip[i] = d
 end
 
@@ -297,7 +297,7 @@ S:SetScript("OnDragStart", S.StartMoving); S:SetScript("OnDragStop", S.StopMovin
 skin(S)
 lift(S)
 tinsert(UISpecialFrames, "TrackETASettings")   -- Escape lukker den
-header(S, "|cffffffffTrack|r|cffffd24aETA|r")
+local sTitle = header(S)
 local close = CreateFrame("Button", nil, S); close:SetSize(20, 20); close:SetPoint("TOPRIGHT", -10, -10)
 local cx = fs(close, F_BOLD, 16); cx:SetPoint("CENTER"); cx:SetText("×"); cx:SetTextColor(0.55, 0.58, 0.64)
 close:SetScript("OnEnter", function() cx:SetTextColor(1, 1, 1) end)
@@ -390,6 +390,7 @@ function S.build()
   if msg ~= "" then
     note:SetPoint("TOPLEFT", SP, y - 6); note:SetPoint("RIGHT", S, "RIGHT", -SP, 0); note:Show(); y = y - 22
   else note:Hide() end
+  sTitle:SetText(T("settings"))
   langBtn.text:SetText(T("langName"))
   doneBtn.text:SetText(T("done"))
   S:SetHeight(-y + 14 + 24 + 16)
